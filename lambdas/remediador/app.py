@@ -12,15 +12,42 @@ log.setLevel(logging.INFO)
 
 ETIQUETA_EXCEPCION = "centinela-excepcion"
 
-TITULOS = {"SG_ABIERTO": "Security Group abierto a internet"}
-MITRE = {"SG_ABIERTO": "T1562.007 Impair Defenses: Disable or Modify Cloud Firewall"}
-RUNBOOKS = {"SG_ABIERTO": "RB-01-security-group-abierto.md"}
-
+TITULOS = {
+    "SG_ABIERTO": "Security Group abierto a internet",
+    "S3_PUBLICO": "Bucket S3 sin bloqueo de acceso público",
+    "CLOUDTRAIL_DETENIDO": "CloudTrail detenido",
+    "CLOUDTRAIL_ELIMINADO": "CloudTrail eliminado",
+    "ROOT_LOGIN": "Inicio de sesión con la cuenta root",
+    "LOGIN_FALLIDO": "Inicio de sesión fallido en la consola",
+    "ACCESS_KEY_CREADA": "Access key nueva creada",
+}
+MITRE = {
+    "SG_ABIERTO": "T1562.007 Impair Defenses: Disable or Modify Cloud Firewall",
+    "S3_PUBLICO": "T1530 Data from Cloud Storage",
+    "CLOUDTRAIL_DETENIDO": "T1562.008 Impair Defenses: Disable or Modify Cloud Logs",
+    "CLOUDTRAIL_ELIMINADO": "T1562.008 Impair Defenses: Disable or Modify Cloud Logs",
+    "ROOT_LOGIN": "T1078.004 Valid Accounts: Cloud Accounts",
+    "LOGIN_FALLIDO": "T1110 Brute Force",
+    "ACCESS_KEY_CREADA": "T1098.001 Account Manipulation: Additional Cloud Credentials",
+}
+RUNBOOKS = {
+    "SG_ABIERTO": "RB-01-security-group-abierto.md",
+    "S3_PUBLICO": "RB-02-bucket-publico.md",
+    "CLOUDTRAIL_DETENIDO": "RB-03-cloudtrail.md",
+    "CLOUDTRAIL_ELIMINADO": "RB-03-cloudtrail.md",
+    "ROOT_LOGIN": "RB-04-login-root.md",
+    "LOGIN_FALLIDO": "RB-05-login-fallido.md",
+    "ACCESS_KEY_CREADA": "RB-06-access-key-nueva.md",
+}
 # Fuera del handler: se ejecuta una vez por entorno y se reutiliza
 # en las invocaciones siguientes (warm start).
 TABLA = boto3.resource("dynamodb").Table(os.environ["TABLA_INCIDENTES"])
 SNS = boto3.client("sns")
 EC2 = boto3.client("ec2")
+
+S3 = boto3.client("s3")
+CLOUDTRAIL = boto3.client("cloudtrail")
+CLAVES_BPA = ("BlockPublicAcls", "IgnorePublicAcls", "BlockPublicPolicy", "RestrictPublicBuckets")
 
 TOPICO = os.environ["TOPICO_ALERTAS"]
 URL_RUNBOOKS = os.environ.get("URL_RUNBOOKS", "").rstrip("/")
@@ -155,9 +182,102 @@ def detectar_security_group(detalle):
 
 
 # Tabla de despacho: (servicio, evento) -> detector. En la Fase 4 agregas filas.
+# ------------------------------------------------------------- detector: S3
+
+def detectar_bucket(detalle):
+    bucket = (detalle.get("requestParameters") or {}).get("bucketName")
+    if not bucket:
+        return None
+    try:
+        conf = S3.get_public_access_block(Bucket=bucket)["PublicAccessBlockConfiguration"]
+    except ClientError as error:
+        codigo = _codigo(error)
+        if codigo == "NoSuchPublicAccessBlockConfiguration":
+            conf = {}  # Sin configuración = los 4 ajustes desactivados
+        elif codigo == "NoSuchBucket":
+            return None
+        else:
+            raise
+
+    desactivados = [c for c in CLAVES_BPA if not conf.get(c)]
+    if not desactivados:
+        return None  # Sigue protegido (incluye nuestra propia corrección)
+
+    try:
+        etiquetas = S3.get_bucket_tagging(Bucket=bucket).get("TagSet", [])
+    except ClientError:
+        etiquetas = []  # NoSuchTagSet: el bucket no tiene etiquetas
+
+    resumen = f"Ajustes desactivados: {', '.join(desactivados)}"
+    if _tiene_excepcion(etiquetas):
+        return nuevo_ticket(detalle, "S3_PUBLICO", "ALTA", "REQUIERE_REVISION", bucket,
+                            f"Tiene la etiqueta {ETIQUETA_EXCEPCION}=true; no se modificó.", resumen)
+    try:
+        S3.put_public_access_block(
+            Bucket=bucket,
+            PublicAccessBlockConfiguration={c: True for c in CLAVES_BPA},
+        )
+    except ClientError as error:
+        return nuevo_ticket(detalle, "S3_PUBLICO", "ALTA", "FALLO_REMEDIACION", bucket,
+                            f"No se pudo reactivar el bloqueo ({_codigo(error)}).", resumen)
+    return nuevo_ticket(detalle, "S3_PUBLICO", "ALTA", "REMEDIADO", bucket,
+                        "Se reactivaron los 4 ajustes de Block Public Access.", resumen)
+
+
+# ------------------------------------------------------- detector: CloudTrail
+
+def detectar_trail_detenido(detalle):
+    nombre = (detalle.get("requestParameters") or {}).get("name", "desconocido")
+    try:
+        CLOUDTRAIL.start_logging(Name=nombre)  # Acepta nombre o ARN
+    except ClientError as error:
+        return nuevo_ticket(detalle, "CLOUDTRAIL_DETENIDO", "CRITICA", "FALLO_REMEDIACION", nombre,
+                            f"No se pudo reactivar el registro ({_codigo(error)}).")
+    return nuevo_ticket(detalle, "CLOUDTRAIL_DETENIDO", "CRITICA", "REMEDIADO", nombre,
+                        "Se reactivó el registro con StartLogging.")
+
+
+def detectar_trail_eliminado(detalle):
+    nombre = (detalle.get("requestParameters") or {}).get("name", "desconocido")
+    return nuevo_ticket(detalle, "CLOUDTRAIL_ELIMINADO", "CRITICA", "REQUIERE_REVISION", nombre,
+                        "No se recrea automáticamente: ejecutar terraform apply.")
+
+
+# ------------------------------------------------------- detector: identidad
+
+def detectar_login(detalle):
+    resultado = (detalle.get("responseElements") or {}).get("ConsoleLogin")
+    ident = detalle.get("userIdentity") or {}
+    if resultado == "Failure":
+        usuario = ident.get("userName") or ident.get("arn") or "desconocido"
+        return nuevo_ticket(detalle, "LOGIN_FALLIDO", "MEDIA", "REQUIERE_REVISION", usuario,
+                            "Revisar si hay más intentos desde la misma IP.",
+                            f"Motivo: {detalle.get('errorMessage', 'sin detalle')}")
+    if ident.get("type") == "Root":
+        mfa = (detalle.get("additionalEventData") or {}).get("MFAUsed", "desconocido")
+        return nuevo_ticket(detalle, "ROOT_LOGIN", "CRITICA", "REQUIERE_REVISION", "cuenta root",
+                            "Confirmar con el dueño de la cuenta que el acceso fue legítimo.",
+                            f"MFA usado: {mfa}")
+    return None  # Login normal de un usuario IAM
+
+
+def detectar_access_key(detalle):
+    llave = (detalle.get("responseElements") or {}).get("accessKey") or {}
+    usuario = llave.get("userName") or (detalle.get("requestParameters") or {}).get("userName", "desconocido")
+    return nuevo_ticket(detalle, "ACCESS_KEY_CREADA", "MEDIA", "REQUIERE_REVISION",
+                        f"{usuario} ({llave.get('accessKeyId', 'sin id')})",
+                        "Confirmar que la llave es necesaria; preferir roles IAM.")
 DETECTORES = {
     ("ec2.amazonaws.com", "AuthorizeSecurityGroupIngress"): detectar_security_group,
     ("ec2.amazonaws.com", "ModifySecurityGroupRules"): detectar_security_group,
+    ("s3.amazonaws.com", "DeleteBucketPublicAccessBlock"): detectar_bucket,
+    ("s3.amazonaws.com", "PutBucketPublicAccessBlock"): detectar_bucket,
+    ("s3.amazonaws.com", "PutBucketPolicy"): detectar_bucket,
+    ("s3.amazonaws.com", "PutBucketAcl"): detectar_bucket,
+    ("cloudtrail.amazonaws.com", "StopLogging"): detectar_trail_detenido,
+    ("cloudtrail.amazonaws.com", "DeleteTrail"): detectar_trail_eliminado,
+    ("signin.amazonaws.com", "ConsoleLogin"): detectar_login,
+    ("iam.amazonaws.com", "CreateAccessKey"): detectar_access_key,
 }
 
 

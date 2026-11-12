@@ -60,6 +60,20 @@ data "aws_iam_policy_document" "remediador" {
     actions   = ["ec2:RevokeSecurityGroupIngress"]
     resources = ["arn:${local.particion}:ec2:*:${local.cuenta}:security-group/*"]
   }
+  statement {
+    sid = "ProtegerBuckets"
+    actions = [
+      "s3:GetBucketPublicAccessBlock",
+      "s3:PutBucketPublicAccessBlock",
+      "s3:GetBucketTagging",
+    ]
+    resources = ["arn:${local.particion}:s3:::*"] # Buckets, no objetos
+  }
+  statement {
+    sid       = "ReactivarCloudTrail"
+    actions   = ["cloudtrail:StartLogging"]
+    resources = ["arn:${local.particion}:cloudtrail:*:${local.cuenta}:trail/*"]
+  }
 }
 
 resource "aws_iam_role_policy" "remediador" {

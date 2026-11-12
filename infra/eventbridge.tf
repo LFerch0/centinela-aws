@@ -15,6 +15,65 @@ locals {
         }
       }
     }
+    "s3-publico" = {
+      descripcion = "Cambios en el acceso público de un bucket S3"
+      patron = {
+        source        = ["aws.s3"]
+        "detail-type" = [local.llamada_api]
+        detail = {
+          eventSource = ["s3.amazonaws.com"]
+          eventName   = ["DeleteBucketPublicAccessBlock", "PutBucketPublicAccessBlock", "PutBucketPolicy", "PutBucketAcl"]
+          errorCode   = local.sin_error
+        }
+      }
+    }
+    "cloudtrail-alterado" = {
+      descripcion = "Alguien detuvo o borró un trail"
+      patron = {
+        source        = ["aws.cloudtrail"]
+        "detail-type" = [local.llamada_api]
+        detail = {
+          eventSource = ["cloudtrail.amazonaws.com"]
+          eventName   = ["StopLogging", "DeleteTrail"]
+          errorCode   = local.sin_error
+        }
+      }
+    }
+    "login-root" = {
+      descripcion = "Inicio de sesión exitoso con la cuenta root"
+      patron = {
+        source        = ["aws.signin"]
+        "detail-type" = ["AWS Console Sign In via CloudTrail"]
+        detail = {
+          eventName        = ["ConsoleLogin"]
+          userIdentity     = { type = ["Root"] }
+          responseElements = { ConsoleLogin = ["Success"] }
+        }
+      }
+    }
+    "login-fallido" = {
+      descripcion = "Inicio de sesión fallido en la consola"
+      patron = {
+        source        = ["aws.signin"]
+        "detail-type" = ["AWS Console Sign In via CloudTrail"]
+        detail = {
+          eventName        = ["ConsoleLogin"]
+          responseElements = { ConsoleLogin = ["Failure"] }
+        }
+      }
+    }
+    "access-key-nueva" = {
+      descripcion = "Se creó una access key de IAM"
+      patron = {
+        source        = ["aws.iam"]
+        "detail-type" = [local.llamada_api]
+        detail = {
+          eventSource = ["iam.amazonaws.com"]
+          eventName   = ["CreateAccessKey"]
+          errorCode   = local.sin_error
+        }
+      }
+    }
   }
 }
 
