@@ -1,0 +1,10 @@
+{
+  "id": { "S": "INC-20261111-PRUEBA01" },
+  "tipo": { "S": "SG_ABIERTO" },
+  "severidad": { "S": "ALTA" },
+  "estado": { "S": "REQUIERE_REVISION" },
+  "recurso": { "S": "sg-0123456789abcdef0" },
+  "accion": { "S": "Ticket de prueba creado a mano" },
+  "detectado_en": { "S": "2026-11-11T19:30:00+00:00" },
+  "segundos_hasta_respuesta": { "N": "42" }
+}

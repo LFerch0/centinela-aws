@@ -9,3 +9,13 @@ variable "proyecto" {
   type        = string
   default     = "centinela-aws"
 }
+
+variable "email_alertas" {
+  description = "Correo que recibe las alertas de Centinela."
+  type        = string
+
+  validation {
+    condition     = can(regex("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$", var.email_alertas))
+    error_message = "Escribe un correo válido."
+  }
+}
