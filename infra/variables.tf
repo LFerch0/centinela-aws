@@ -19,3 +19,21 @@ variable "email_alertas" {
     error_message = "Escribe un correo válido."
   }
 }
+
+variable "url_repositorio" {
+  description = "URL de tu repositorio, para enlazar los runbooks en cada alerta."
+  type        = string
+  default     = ""
+}
+
+variable "puertos_sensibles" {
+  description = "Puertos que nunca deben quedar abiertos a 0.0.0.0/0 ni ::/0."
+  type        = list(number)
+  default     = [22, 3389, 3306, 5432, 1433, 27017]
+}
+
+variable "dias_retencion_logs" {
+  description = "Días que se guardan los logs de las Lambdas."
+  type        = number
+  default     = 14
+}
