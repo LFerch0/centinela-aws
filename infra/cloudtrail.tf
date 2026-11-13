@@ -39,7 +39,6 @@ resource "aws_s3_bucket_lifecycle_configuration" "trail" {
   }
 }
 
-# Política: solo TU trail puede escribir aquí, y solo por HTTPS
 data "aws_iam_policy_document" "trail" {
   statement {
     sid       = "CloudTrailRevisaACL"
