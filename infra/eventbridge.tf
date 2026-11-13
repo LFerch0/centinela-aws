@@ -95,9 +95,11 @@ resource "aws_cloudwatch_event_target" "deteccion" {
     maximum_retry_attempts       = 8
     maximum_event_age_in_seconds = 3600
   }
+  dead_letter_config {
+    arn = aws_sqs_queue.fallidos.arn
+  }
 }
 
-# Política del recurso Lambda: solo ESTA regla puede invocarla
 resource "aws_lambda_permission" "deteccion" {
   for_each = local.reglas
 

@@ -10,7 +10,6 @@ terraform {
       version = "~> 2.7"
     }
   }
-  # Vacío a propósito: los datos van en backend.hcl.
   backend "s3" {}
 }
 
@@ -33,4 +32,9 @@ locals {
   cuenta    = data.aws_caller_identity.actual.account_id
   particion = data.aws_partition.actual.partition
   region    = data.aws_region.actual.region
+}
+variable "limite_presupuesto_usd" {
+  description = "Presupuesto mensual en USD, sin restar créditos."
+  type        = number
+  default     = 5
 }

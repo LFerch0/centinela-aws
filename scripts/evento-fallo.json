@@ -1,0 +1,18 @@
+{
+  "detail-type": "AWS API Call via CloudTrail",
+  "source": "aws.cloudtrail",
+  "detail": {
+    "eventSource": "cloudtrail.amazonaws.com",
+    "eventName": "StopLogging",
+    "eventTime": "2026-11-13T22:00:00Z",
+    "eventID": "prueba00-fallo-0000-0000-000000000000",
+    "awsRegion": "us-east-1",
+    "sourceIPAddress": "203.0.113.10",
+    "userIdentity": {
+      "type": "IAMUser",
+      "arn": "arn:aws:iam::000000000000:user/prueba",
+      "userName": "prueba"
+    },
+    "requestParameters": { "name": "trail-que-no-existe" }
+  }
+}

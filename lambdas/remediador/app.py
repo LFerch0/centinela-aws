@@ -47,6 +47,7 @@ EC2 = boto3.client("ec2")
 
 S3 = boto3.client("s3")
 CLOUDTRAIL = boto3.client("cloudtrail")
+CLOUDWATCH = boto3.client("cloudwatch")
 CLAVES_BPA = ("BlockPublicAcls", "IgnorePublicAcls", "BlockPublicPolicy", "RestrictPublicBuckets")
 
 TOPICO = os.environ["TOPICO_ALERTAS"]
@@ -303,6 +304,23 @@ def notificar(t):
     ])
     SNS.publish(TopicArn=TOPICO, Subject=asunto[:99], Message=cuerpo)
 
+def publicar_metricas(t):
+    datos = [{
+        "MetricName": "Incidentes",
+        "Dimensions": [{"Name": "Severidad", "Value": t["severidad"]}],
+        "Value": 1,
+        "Unit": "Count",
+    }]
+    if t["estado"] == "REMEDIADO":
+        datos.append({
+            "MetricName": "TiempoRemediacionSegundos",
+            "Value": t["segundos_hasta_respuesta"],
+            "Unit": "Seconds",
+        })
+    try:
+        CLOUDWATCH.put_metric_data(Namespace="Centinela", MetricData=datos)
+    except ClientError:
+        log.exception("No se pudieron publicar las métricas; el ticket sí quedó registrado")
 
 def es_accion_propia(detalle):
     emisor = ((detalle.get("userIdentity") or {}).get("sessionContext") or {}) \
@@ -329,6 +347,7 @@ def handler(event, context):
         return {"resultado": "IGNORADO", "motivo": "no es incidente"}
 
     TABLA.put_item(Item=ticket)
+    publicar_metricas(ticket)
     notificar(ticket)
     log.info("Ticket %s: %s %s", ticket["id"], ticket["tipo"], ticket["estado"])
 

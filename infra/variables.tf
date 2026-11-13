@@ -37,3 +37,15 @@ variable "dias_retencion_logs" {
   type        = number
   default     = 14
 }
+
+variable "crear_servidor" {
+  description = "Crea la EC2 administrada con Systems Manager. Gasta créditos mientras exista."
+  type        = bool
+  default     = false
+}
+
+variable "tipo_instancia" {
+  description = "Tipo de instancia del servidor."
+  type        = string
+  default     = "t3.micro"
+}

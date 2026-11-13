@@ -7,3 +7,8 @@ output "topico_alertas_arn" {
   description = "ARN del tópico SNS de alertas"
   value       = aws_sns_topic.alertas.arn
 }
+
+output "servidor_id" {
+  description = "ID de la instancia administrada por Systems Manager"
+  value       = one(aws_instance.servidor[*].id)
+}

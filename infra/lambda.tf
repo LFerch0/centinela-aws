@@ -1,4 +1,3 @@
-# Solo el servicio Lambda, y solo para esta cuenta, puede asumir el rol
 data "aws_iam_policy_document" "confianza_lambda" {
   statement {
     actions = ["sts:AssumeRole"]
@@ -14,8 +13,6 @@ data "aws_iam_policy_document" "confianza_lambda" {
   }
 }
 
-# Empaqueta la carpeta en un zip. Si cambias el código, cambia el hash
-# y Terraform vuelve a subir la función.
 data "archive_file" "remediador" {
   type        = "zip"
   source_dir  = "${path.module}/../lambdas/remediador"
@@ -53,7 +50,7 @@ data "aws_iam_policy_document" "remediador" {
   statement {
     sid       = "LeerSecurityGroups"
     actions   = ["ec2:DescribeSecurityGroups"]
-    resources = ["*"] # Las acciones Describe de EC2 no admiten restricción por recurso
+    resources = ["*"]
   }
   statement {
     sid       = "CerrarSecurityGroups"
@@ -67,12 +64,27 @@ data "aws_iam_policy_document" "remediador" {
       "s3:PutBucketPublicAccessBlock",
       "s3:GetBucketTagging",
     ]
-    resources = ["arn:${local.particion}:s3:::*"] # Buckets, no objetos
+    resources = ["arn:${local.particion}:s3:::*"]
   }
   statement {
     sid       = "ReactivarCloudTrail"
     actions   = ["cloudtrail:StartLogging"]
     resources = ["arn:${local.particion}:cloudtrail:*:${local.cuenta}:trail/*"]
+  }
+  statement {
+    sid       = "EnviarFallidos"
+    actions   = ["sqs:SendMessage"]
+    resources = [aws_sqs_queue.fallidos.arn]
+  }
+  statement {
+    sid       = "PublicarMetricas"
+    actions   = ["cloudwatch:PutMetricData"]
+    resources = ["*"]
+    condition {
+      test     = "StringEquals"
+      variable = "cloudwatch:namespace"
+      values   = ["Centinela"]
+    }
   }
 }
 
@@ -87,7 +99,7 @@ resource "aws_lambda_function" "remediador" {
   description      = "Centinela: detección y respuesta automática a incidentes"
   role             = aws_iam_role.remediador.arn
   runtime          = "python3.12"
-  handler          = "app.handler" # archivo app.py, función handler
+  handler          = "app.handler"
   filename         = data.archive_file.remediador.output_path
   source_code_hash = data.archive_file.remediador.output_base64sha256
   timeout          = 30
@@ -103,6 +115,16 @@ resource "aws_lambda_function" "remediador" {
     }
   }
 
-  # El grupo de logs y los permisos deben existir antes de la primera ejecución
   depends_on = [aws_cloudwatch_log_group.remediador, aws_iam_role_policy.remediador]
+}
+resource "aws_lambda_function_event_invoke_config" "remediador" {
+  function_name                = aws_lambda_function.remediador.function_name
+  maximum_retry_attempts       = 2
+  maximum_event_age_in_seconds = 3600
+
+  destination_config {
+    on_failure {
+      destination = aws_sqs_queue.fallidos.arn
+    }
+  }
 }

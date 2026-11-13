@@ -21,18 +21,17 @@ provider "aws" {
 data "aws_caller_identity" "actual" {}
 
 resource "aws_s3_bucket" "estado" {
-  # El ID de cuenta hace el nombre único en todo el mundo.
   bucket = "centinela-tfstate-${data.aws_caller_identity.actual.account_id}"
 
   lifecycle {
-    prevent_destroy = true # Terraform se niega a borrarlo por accidente.
+    prevent_destroy = true 
   }
 }
 
 resource "aws_s3_bucket_versioning" "estado" {
   bucket = aws_s3_bucket.estado.id
   versioning_configuration {
-    status = "Enabled" # Si el estado se corrompe, recuperas una versión anterior.
+    status = "Enabled" 
   }
 }
 

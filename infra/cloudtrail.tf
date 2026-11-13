@@ -3,10 +3,10 @@ locals {
   arn_trail    = "arn:${local.particion}:cloudtrail:${local.region}:${local.cuenta}:trail/${local.nombre_trail}"
 }
 
-# Bucket privado donde CloudTrail guarda los logs
+
 resource "aws_s3_bucket" "trail" {
   bucket        = "${local.nombre}-cloudtrail-${local.cuenta}"
-  force_destroy = true # Permite borrarlo con destroy aunque tenga logs
+  force_destroy = true
 }
 
 resource "aws_s3_bucket_public_access_block" "trail" {
@@ -26,7 +26,6 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "trail" {
   }
 }
 
-# Los logs se borran a los 90 días para no acumular costo
 resource "aws_s3_bucket_lifecycle_configuration" "trail" {
   bucket = aws_s3_bucket.trail.id
   rule {
@@ -101,8 +100,6 @@ resource "aws_s3_bucket_policy" "trail" {
   depends_on = [aws_s3_bucket_public_access_block.trail]
 }
 
-# El trail: todas las regiones, eventos globales (IAM, inicio de sesión) y
-# validación de integridad, para detectar si alguien altera un log
 resource "aws_cloudtrail" "principal" {
   name                          = local.nombre_trail
   s3_bucket_name                = aws_s3_bucket.trail.id
@@ -110,6 +107,5 @@ resource "aws_cloudtrail" "principal" {
   include_global_service_events = true
   enable_log_file_validation    = true
 
-  # Sin esto, Terraform puede crear el trail antes que la política y falla
   depends_on = [aws_s3_bucket_policy.trail]
 }
