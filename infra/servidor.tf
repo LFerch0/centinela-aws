@@ -107,7 +107,7 @@ resource "aws_instance" "servidor" {
   root_block_device {
     volume_type = "gp3"
     volume_size = 8
-    encrypted   = true
+    encrypted   = false
   }
 
   user_data = <<-EOF
