@@ -13,7 +13,7 @@ variable "proyecto" {
 variable "email_alertas" {
   description = "Correo que recibe las alertas de Centinela."
   type        = string
-  sensitive = true
+  sensitive   = true
 
   validation {
     condition     = can(regex("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$", var.email_alertas))
