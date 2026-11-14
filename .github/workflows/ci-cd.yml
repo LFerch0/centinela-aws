@@ -46,7 +46,7 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install checkov==3.4.5
-      - run: checkov -d . --config-file .checkov.yaml
+      - run: checkov -d . --config-file .checkov.yaml --var-file infra/checkov.tfvars
 
   validar:
     name: Formato y validacion de Terraform
