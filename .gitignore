@@ -45,3 +45,7 @@ terraform.rc
 
 backend.hcl
 .build/
+
+.venv/
+__pycache__/
+.pytest_cache/

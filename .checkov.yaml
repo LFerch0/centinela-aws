@@ -1,0 +1,39 @@
+# Configuración de checkov. Cada excepción está justificada: aceptar un hallazgo
+# sin explicar por qué no es una decisión, es ignorarlo.
+framework:
+  - terraform
+compact: true
+quiet: true
+skip-download: true
+skip-check:
+  # --- Requieren una clave KMS propia (USD 1/mes cada una). Se usa el cifrado
+  #     administrado por AWS, que cifra en reposo sin costo.
+  - CKV_AWS_119 # DynamoDB con CMK
+  - CKV_AWS_145 # S3 con KMS
+  - CKV_AWS_158 # Log groups con KMS
+  - CKV_AWS_173 # Variables de entorno de Lambda con CMK (no contienen secretos)
+  - CKV_AWS_26 # SNS cifrado: con aws/sns las alarmas de CloudWatch no pueden publicar
+  - CKV_AWS_297 # EventBridge Scheduler con CMK
+  - CKV_AWS_35 # CloudTrail con CMK
+  - CKV_AWS_112 # Session Manager con KMS (la sesión ya viaja cifrada con TLS)
+  - CKV_AWS_113 # Logs de sesión cifrados con KMS (requiere CMK en el log group)
+  # --- Costo desproporcionado para un proyecto de una sola cuenta.
+  - CKV_AWS_144 # Replicación entre regiones de S3
+  - CKV_AWS_18 # Access logging de S3 (requiere otro bucket, que a su vez pediría logging)
+  - CKV2_AWS_62 # Notificaciones de eventos en S3: los cambios se vigilan con CloudTrail
+  - CKV_AWS_28 # Point-in-time recovery de DynamoDB (cobra por GB)
+  - CKV2_AWS_16 # Auto Scaling de DynamoDB: 2 RCU/WCU bastan para el volumen de tickets
+  - CKV_AWS_338 # Retención de logs de 1 año: se usan 14 días
+  - CKV2_AWS_10 # CloudTrail hacia CloudWatch Logs: la detección se hace con EventBridge
+  - CKV_AWS_252 # SNS por cada archivo de log de CloudTrail: solo generaría ruido
+  - CKV_AWS_126 # Monitoreo detallado de EC2 (1 minuto) cobra por métrica
+  # --- No aplican o son falsos positivos.
+  - CKV_AWS_117 # Lambda en VPC: solo llama a APIs de AWS; en una VPC necesitaría NAT o endpoints
+  - CKV_AWS_116 # DLQ de Lambda: se usa un destino on_failure, que checkov no reconoce y es más completo
+  - CKV_AWS_115 # Concurrencia reservada: las cuentas nuevas tienen un límite de 10 y no permiten reservar
+  - CKV_AWS_272 # Firma de código: el código solo se despliega desde el pipeline de CI/CD
+  - CKV_AWS_50 # X-Ray: la trazabilidad se cubre con logs y métricas propias (mejora futura)
+  - CKV_AWS_135 # EBS optimized: las instancias t3 lo son por defecto
+  - CKV_AWS_88 # IP pública en la EC2: sin reglas de entrada; la alternativa es NAT (USD 32/mes)
+  # --- Riesgo aceptado y mitigado.
+  - CKV_AWS_274 # AdministratorAccess en el rol de apply: OIDC, solo environment produccion con aprobación

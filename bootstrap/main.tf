@@ -24,14 +24,14 @@ resource "aws_s3_bucket" "estado" {
   bucket = "centinela-tfstate-${data.aws_caller_identity.actual.account_id}"
 
   lifecycle {
-    prevent_destroy = true 
+    prevent_destroy = true
   }
 }
 
 resource "aws_s3_bucket_versioning" "estado" {
   bucket = aws_s3_bucket.estado.id
   versioning_configuration {
-    status = "Enabled" 
+    status = "Enabled"
   }
 }
 
@@ -50,4 +50,19 @@ resource "aws_s3_bucket_public_access_block" "estado" {
   block_public_policy     = true
   ignore_public_acls      = true
   restrict_public_buckets = true
+}
+
+resource "aws_s3_bucket_lifecycle_configuration" "estado" {
+  bucket = aws_s3_bucket.estado.id
+  rule {
+    id     = "limpiar-versiones-antiguas"
+    status = "Enabled"
+    filter {}
+    noncurrent_version_expiration {
+      noncurrent_days = 90 # Versiones anteriores del estado: 90 días para recuperar
+    }
+    abort_incomplete_multipart_upload {
+      days_after_initiation = 1
+    }
+  }
 }
