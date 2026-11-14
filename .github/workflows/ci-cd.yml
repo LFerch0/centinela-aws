@@ -96,7 +96,7 @@ jobs:
           claims = json.loads(base64.urlsafe_b64decode(carga))
           print(json.dumps({k: claims.get(k) for k in ("sub", "aud", "iss", "repository", "event_name")}, indent=2))
           ' "$TOKEN"
-      - uses: aws-actions/configure-aws-credentials@v5
+      - uses: aws-actions/configure-aws-credentials@v6
         with:
           role-to-assume: ${{ vars.AWS_ROLE_PLAN }}
           aws-region: ${{ env.AWS_REGION }}
@@ -141,7 +141,7 @@ jobs:
         with:
           terraform_version: "^1.10.0"
           terraform_wrapper: false
-      - uses: aws-actions/configure-aws-credentials@v5
+      - uses: aws-actions/configure-aws-credentials@v6
         with:
           role-to-assume: ${{ vars.AWS_ROLE_APPLY }}
           aws-region: ${{ env.AWS_REGION }}
