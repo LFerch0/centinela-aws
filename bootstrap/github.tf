@@ -14,6 +14,23 @@ variable "github_repo" {
     error_message = "Usa el formato usuario/repositorio, sin https://github.com/."
   }
 }
+variable "github_owner_id" {
+  description = "ID numérico de tu cuenta de GitHub (no cambia aunque cambie el nombre)."
+  type        = number
+}
+
+variable "github_repo_id" {
+  description = "ID numérico del repositorio (no cambia aunque cambie el nombre)."
+  type        = number
+}
+
+locals {
+  sujeto_github = format(
+    "repo:%s@%d/%s@%d",
+    split("/", var.github_repo)[0], var.github_owner_id,
+    split("/", var.github_repo)[1], var.github_repo_id,
+  )
+}
 
 resource "aws_iam_openid_connect_provider" "github" {
   url            = "https://token.actions.githubusercontent.com"
@@ -43,7 +60,7 @@ data "aws_iam_policy_document" "confianza_plan" {
     condition {
       test     = "StringEquals"
       variable = "token.actions.githubusercontent.com:sub"
-      values   = ["repo:${var.github_repo}:pull_request"]
+      values   = ["${local.sujeto_github}:pull_request"]
     }
   }
 }
@@ -96,7 +113,7 @@ data "aws_iam_policy_document" "confianza_apply" {
     condition {
       test     = "StringEquals"
       variable = "token.actions.githubusercontent.com:sub"
-      values   = ["repo:${var.github_repo}:environment:produccion"]
+      values   = ["${local.sujeto_github}:environment:produccion"]
     }
   }
 }
