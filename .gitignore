@@ -45,3 +45,10 @@ terraform.rc
 
 backend.hcl
 .build/
+
+.venv/
+__pycache__/
+.pytest_cache/
+# Herramientas y grabaciones locales
+agg
+*.cast
