@@ -28,7 +28,7 @@ jobs:
     name: Pruebas de las Lambdas
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
@@ -41,7 +41,7 @@ jobs:
     name: Analisis de seguridad (checkov)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
@@ -52,7 +52,7 @@ jobs:
     name: Formato y validacion de Terraform
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: "^1.10.0"
@@ -80,7 +80,7 @@ jobs:
       run:
         working-directory: infra
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: "^1.10.0"
@@ -136,7 +136,7 @@ jobs:
       run:
         working-directory: infra
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: "^1.10.0"
